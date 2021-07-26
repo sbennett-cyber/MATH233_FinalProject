@@ -1238,7 +1238,7 @@ classdef NetworkLine
                            Fix(end) =  Coeff*2*obj.NetMtrix(2).D/obj.NetMtrix(2).drho;
                            Fix(end-1)   = -Coeff*(1/2)*obj.NetMtrix(2).D/obj.NetMtrix(2).drho;
                            
-                           FixLoc = [Size(1)-1;Size(1)-2+Size(2)-2];
+                           FixLoc = [Size(1)-2;Size(1)-2+Size(2)-2];
                        end
                        
                        i = Size(1); %For the first channel
@@ -1273,7 +1273,82 @@ classdef NetworkLine
                
                 elseif obj.NumChannels == 3
                     
-                    "Not Written Yet"
+                    Size = [obj.NetMtrix(1).Size, obj.NetMtrix(2).Size, obj.NetMtrix(3).Size]; %Find the number of discretization points in channels 1 and 2
+                    
+                    Coeff = 1/((((obj.NetMtrix(1).D/obj.NetMtrix(1).drho) + (obj.NetMtrix(2).D)/obj.NetMtrix(2).drho + obj.NetMtrix(3).D/obj.NetMtrix(3).drho))*(3/2));
+                    r = [obj.NetMtrix(1).r*k, obj.NetMtrix(2).r*k, obj.NetMtrix(3).r*k]; %Correct the coefficients for channels 1 and 2
+                    FixLoc = [];   
+                    LocVertex1 = obj.NetMtrix(1).LocVertex;
+                    LocVertex2 = obj.NetMtrix(2).LocVertex;
+                    LocVertex3 = obj.NetMtrix(3).LocVertex;
+                    
+                    if LocVertex1==1 %If channel 2 is connected on the right to channel 1
+                        Fix(1) =  Coeff*2*obj.NetMtrix(1).D/obj.NetMtrix(1).drho; %Create the row of coefficients needed to edit
+                        Fix(2) = -Coeff*(1/2)*obj.NetMtrix(1).D/obj.NetMtrix(1).drho;
+                        FixLoc = [FixLoc,1];
+                    else
+                        Fix(Size(1)-2) =  Coeff*2*obj.NetMtrix(1).D/obj.NetMtrix(1).drho; %Create the row of coefficients needed to edit
+                        Fix(Size(1)-3) = -Coeff*(1/2)*obj.NetMtrix(1).D/obj.NetMtrix(1).drho;
+                        FixLoc = [FixLoc,Size(1)-2];
+                    end
+                    
+                    if LocVertex2==1
+                        Fix(Size(1)-1) =  Coeff*2*obj.NetMtrix(2).D/obj.NetMtrix(2).drho;
+                        Fix(Size(1))   = -Coeff*(1/2)*obj.NetMtrix(2).D/obj.NetMtrix(2).drho;
+                        FixLoc = [FixLoc,Size(1)-1];
+                    else
+                        Fix(Size(1)-2+Size(2)-2) =  Coeff*2*obj.NetMtrix(2).D/obj.NetMtrix(2).drho;
+                        Fix(Size(1)-2+Size(2)-3)   = -Coeff*(1/2)*obj.NetMtrix(2).D/obj.NetMtrix(2).drho;
+                        FixLoc = [FixLoc;Size(1)-2+Size(2)-2];
+                    end
+                    
+                    if LocVertex3==1
+                        Fix(Size(1)-2+Size(2)-1) =  Coeff*2*obj.NetMtrix(3).D/obj.NetMtrix(3).drho;
+                        Fix(Size(1)-2+Size(2))   = -Coeff*(1/2)*obj.NetMtrix(3).D/obj.NetMtrix(3).drho;
+                        FixLoc = [FixLoc,Size(1)-2+Size(2)-1];
+                    else
+                        Fix(Size(1)-2+Size(2)-2+Size(3)-2) =  Coeff*2*obj.NetMtrix(3).D/obj.NetMtrix(3).drho;
+                        Fix(Size(1)-2+Size(2)-2+Size(3)-3)   = -Coeff*(1/2)*obj.NetMtrix(3).D/obj.NetMtrix(3).drho;
+                        FixLoc = [FixLoc;Size(1)-2+Size(2)-2+Size(3)-2];
+                    end
+                    
+                    i = Size(1); %For the first channel
+                    off(1:i-3)=r(1); %Create the off diagonals of the matrix
+                    onL(1:i-2)=1+2*r(1); %Create the main diagonals of the right and left matrix
+                    onR(1:i-2)=1-2*r(1);
+
+                    LHS_1=diag(onL,0)+diag(-off,-1)+diag(-off,1); % Create the centered spatial difference matrix
+                    RLHS_1=diag(onR,0)+diag(off,-1)+diag(off,1); 
+
+                    i = Size(2); %For the second channel
+                    off(1:i-3)=r(2); %Create the off diagonals of the matrix
+                    onL(1:i-2)=1+2*r(2); %Create the main diagonals of the right and left matrix
+                    onR(1:i-2)=1-2*r(2);
+
+                    LHS_2=diag(onL,0)+diag(-off,-1)+diag(-off,1); % Create the centered spatial difference matrix
+                    RLHS_2=diag(onR,0)+diag(off,-1)+diag(off,1); 
+                    
+                    i = Size(3); %For the second channel
+                    off(1:i-3)=r(3); %Create the off diagonals of the matrix
+                    onL(1:i-2)=1+2*r(3); %Create the main diagonals of the right and left matrix
+                    onR(1:i-2)=1-2*r(3);
+
+                    LHS_3=diag(onL,0)+diag(-off,-1)+diag(-off,1); % Create the centered spatial difference matrix
+                    RLHS_3=diag(onR,0)+diag(off,-1)+diag(off,1); 
+                    
+                    LHS = blkdiag(LHS_1,LHS_2,LHS_3); %Create full matrix
+                    RLHS = blkdiag(RLHS_1,RLHS_2,RLHS_3);
+
+                    LHS(FixLoc,:)  = LHS(FixLoc,:) -[r(1)*Fix;r(2)*Fix;r(3)*Fix]; %Update matrix with fix times the correct r for the domain
+                    RLHS(FixLoc,:) = RLHS(FixLoc,:)+[r(1)*Fix;r(2)*Fix;r(3)*Fix];
+
+                    Mtrix.RLHS(:,:) = RLHS;
+                    Mtrix.LHS(:,:) = LHS;
+                    Mtrix.Junction(:,1) = Fix;
+                    Mtrix.RhoID_X = [obj.NetMtrix(1).DiscIn2D_X(2:end-1,1);obj.NetMtrix(2).DiscIn2D_X(2:end-1,1);obj.NetMtrix(3).DiscIn2D_X(2:end-1,1)];
+                    Mtrix.RhoID_Y = [obj.NetMtrix(1).DiscIn2D_Y(2:end-1,1);obj.NetMtrix(2).DiscIn2D_Y(2:end-1,1);obj.NetMtrix(3).DiscIn2D_Y(2:end-1,1)];
+                    Mtrix.ID = [ones(Size(1)-2,1);ones(Size(2)-2,1);ones(Size(3)-2,1)];
+
             end
             
          out = Mtrix;    
@@ -1424,9 +1499,9 @@ classdef NetworkLine
                 [InP,~] =  inpolygon(Cross(1),Cross(2),poly(NeigborID(i)).X,poly(NeigborID(i)).Y);     %Check which domain the Crosspoint falls in
                 if InP == 1
                     CrossID = NeigborID(i); %Store the domain ID
-                else
-                    "Error with Initial Network Setup"
-                    pause
+               % else
+                  %  "Error with Initial Network Setup"
+                   % pause
                 end
             end
             
@@ -1673,213 +1748,6 @@ classdef NetworkLine
             out5 = LineID;
         end
         
-        %% Find concentration at C_bar using Embedded Boundary Method
-        function [out1, out2, out3, out4, out5] = EBM_Old(obj,poly, CenterID, Center, Cross)
-            
-            LocCenter = find(obj.Network.Boundary(:,1)==CenterID); %Find the domain in which the center lives
-            
-            NeigborID = unique(obj.Network.Boundary(LocCenter,2)); %Find the ID of the neighbors
-            
-            for i = 1:length(NeigborID)
-                [InP,~] =  inpolygon(Cross(1),Cross(2),poly(NeigborID(i)).X,poly(NeigborID(i)).Y);     %Check which domain the Crosspoint falls in
-                if InP == 1
-                    CrossID = NeigborID(i); %Store the domain ID
-                else
-                    "Error with Initial Network Setup"
-                    pause
-                end
-            end
-            
-            BndryLoc = find(obj.Network.Boundary(:,1)==CenterID & obj.Network.Boundary(:,2)==CrossID | obj.Network.Boundary(:,2)==CenterID & obj.Network.Boundary(:,1)==CrossID);  %Find the correct row(s) where the boundary information is stored
-            LineID = 0;
-            xi_bar = 100000;
-            for i = 1:length(BndryLoc)
-                Start = [obj.Network.vertexX(BndryLoc(i),1),obj.Network.vertexY(BndryLoc(i),1)]; %Identify the (x,y) pair where the boundary starts
-                End   = [obj.Network.vertexX(BndryLoc(i),2),obj.Network.vertexY(BndryLoc(i),2)]; %Identify the (x,y) pair where the boundary ends
-                Check = obj.FindChannel(Start, End, Center, Cross); %Check if the line falls between the crosspoint and center of stencil
-               
-                if Check == 1
-                    [xi_bar_Temp, C_Gamma_Temp, Type_Temp, m_and_b_Temp] = obj.point_to_line(Cross, Start, End, "No Plot"); %Find the normal passing through the crosspoint and normal to a boundary line
-                    if xi_bar_Temp < xi_bar                                        %Find if the distance from C_Bar to the line is less than the current option
-                        xi_bar = xi_bar_Temp;                                      %If yes, x_bar_Temp becomes the new minimum 
-                        C_Gamma = C_Gamma_Temp;
-                        Type = Type_Temp; 
-                        m_and_b = m_and_b_Temp;
-                        ka = obj.Network.ka(i);
-                        kd = obj.Network.kd(i);
-                        LineID = obj.Network.LineID(BndryLoc(i));
-                    end 
-                end
-            end
-            
-            [X_i, Y_i, CaseGamma] = obj.GenerateStencil(Center, Cross, C_Gamma, Type, m_and_b(1)); %Find the neigboring gridlines in X and Y and whether the flux on the BC should be negative or positive
-            
-            switch Type
-                case "Horizontal"
-                    X_Cross=[0,0]; %Find C_i, C_ii, C_iii 
-                    Y_Cross=[Center(1)*ones(length(Y_i),1), Y_i'];
-                case "Angled"
-                    X_Cross=[X_i',obj.NormalLine(m_and_b(1), m_and_b(2),X_i,"y")']; %Find C_i, C_ii, C_iii 
-                    Y_Cross=[obj.NormalLine(m_and_b(1), m_and_b(2),Y_i,"x")', Y_i'];
-            end
-            
-            
-            [InX_Cross,~] = inpolygon(X_Cross(:,1),X_Cross(:,2),poly(CenterID).X,poly(CenterID).Y); %Identify which points (C_i, C_ii, C_iii) live in the domain of interest
-            [InY_Cross,~] = inpolygon(Y_Cross(:,1),Y_Cross(:,2),poly(CenterID).X,poly(CenterID).Y);
-            
-            X_Cross=X_Cross(InX_Cross==1 & abs(X_Cross(:,1)-obj.minX)>obj.tol & abs(X_Cross(:,1)-obj.maxX)>obj.tol & abs(X_Cross(:,2)-obj.minY)>obj.tol & abs(X_Cross(:,2)-obj.maxY)>obj.tol,:);  %Remove all points that fall outside the domain of interest or on the boundary
-            Y_Cross=Y_Cross(InY_Cross==1 & abs(Y_Cross(:,1)-obj.minX)>obj.tol & abs(Y_Cross(:,1)-obj.maxY)>obj.tol & abs(Y_Cross(:,2)-obj.minY)>obj.tol & abs(Y_Cross(:,2)-obj.maxY)>obj.tol,:);
-            
-            
-            XSize=size(X_Cross); % Find the number of points that cross in X and Y
-            YSize=size(Y_Cross);
-            
-            if (XSize(1) > 3) 
-                Diff = X_Cross(1:end-1,1) - X_Cross(2:end,1);
-                LocMax = find(abs(Diff-max(Diff))<obj.tol);
-                LocMin = find(abs(Diff-min(Diff))<obj.tol);
-                Location = find(abs(Diff-min(Diff))>obj.tol);
-                if sum(Diff(1:Location)) > sum(Diff(Location:end))
-                    X_Cross = X_Cross(1:Location-1,:);
-                elseif sum(Diff(1:Location)) < sum(Diff(Location:end))
-                    X_Cross = X_Cross(Location+1:end,:);
-                else
-                    "XSize Incorrect in EBM"
-                pause
-                end
-                XSize = size(X_Cross);
-            end
-            
-            if (YSize(1) > 3) 
-                Diff = Y_Cross(1:end-1,2) - Y_Cross(2:end,2);
-                LocMax = find(abs(Diff-max(Diff))<obj.tol);
-                LocMin = find(abs(Diff-min(Diff))<obj.tol);
-                Location = find(abs(Diff-min(Diff))>obj.tol);
-                if sum(Diff(1:Location)) > sum(Diff(Location:end))
-                    Y_Cross = Y_Cross(1:Location-1,:);
-                elseif sum(Diff(1:Location)) < sum(Diff(Location:end)) %#ok<*AND2>
-                    Y_Cross = Y_Cross(Location+1:end,:);
-                else
-                    if length(Y_Cross(:,1))==6
-                        Y_Cross = Y_Cross(1:3,:)
-                    end
-                   % "XSize Incorrect" %#ok<*NOPRT>
-                    %pause
-                %pause
-                end
-                YSize = size(Y_Cross);
-            end
-
-            if isempty(X_Cross)
-                dX1 = 1000000;
-                dX2 = 1000000;
-            else
-                dX1 = sqrt((C_Gamma(1)-X_Cross(1,1))^2+(C_Gamma(2)-X_Cross(1,2))^2);
-                dX2 = sqrt((C_Gamma(1)-X_Cross(end,1))^2+(C_Gamma(2)-X_Cross(end,2))^2);
-            end
-            
-            
-            if isempty(Y_Cross)
-                dY1 = 1000000;
-                dY2 = 1000000;
-            else   
-                dY1 = sqrt((C_Gamma(1)-Y_Cross(1,1))^2+(C_Gamma(2)-Y_Cross(1,2))^2);
-                dY2 = sqrt((C_Gamma(1)-Y_Cross(end,1))^2+(C_Gamma(2)-Y_Cross(end,2))^2);
-            end
-            
-            switch CaseGamma
-                case "Equal"
-                    switch Type
-                        case "Horizontal"
-                            if Center(2)>Y_Cross(1,2)
-                                Y_Cross = [Center;Y_Cross];
-                            else
-                                Y_Cross = [Y_Cross;Center];
-                            end
-                            InterpCBar = [Y_Cross,obj.LagrangeIP(Y_Cross(:,2), Cross(2))'];
-                            Coeff_Rho = 0;
-                            out4 = Y_Cross;
-
-%                             if Center(2)>Y_Cross(1,2)
-%                                 Y_Cross = [Center;Y_Cross];
-%                                 InterpCBar_Temp = [Y_Cross,obj.LagrangeIP(Y_Cross(:,2), Cross(2))'];
-%                                 Coeff_Rho = InterpCBar_Temp(1,3);
-%                                 InterpCBar = InterpCBar_Temp(2:end,:);
-%                                 out4 = Y_Cross(2:end,:);
-%                             else
-%                                 Y_Cross = [Y_Cross;Center];
-%                                 InterpCBar_Temp = [Y_Cross,obj.LagrangeIP(Y_Cross(:,2), Cross(2))'];
-%                                 Coeff_Rho = InterpCBar_Temp(end,3);
-%                                 InterpCBar = InterpCBar_Temp(1:end-1,:);
-%                                 out4 = Y_Cross(1:end-1,:);
-%                             end
-                            
-                            
-%                               if Center(2)>Cross(2)
-%                                   InterpCBar = [Y_Cross,[1;(2*obj.dx*ka)/poly(CenterID).D]];
-%                                   Coeff_Rho = -(2*obj.dx*kd)/poly(CenterID).D;
-%                                   out4 = Y_Cross;
-%                               else
-%                                   InterpCBar = [Y_Cross,[-(2*obj.dx*ka)/poly(CenterID).D;1]];
-%                                   Coeff_Rho = (2*obj.dx*kd)/poly(CenterID).D;
-%                                   out4 = Y_Cross;
-%                               end                              
-
-                        case "Angled"
-                            if XSize(1)~=0 || YSize(1)~=0                  %If at least one cross point exists in X or Y
-
-                                if max(dX1,dX2)<=max(dY1,dY2) %If there are more points in X OR if there are equal points and the slope of the boundary is greater than or equal to 1
-                                   InterpCBar = [X_Cross,obj.LagrangeIP(X_Cross(:,1), Cross(1))'];
-                                   Coeff_Rho = 0;
-                                   out4 = X_Cross;
-                                   
-                                elseif max(dX1,dX2)>max(dY1,dY2) %If there are more points in Y OR if there are equal points and the slope of the normal is less than or equal to 1
-                                   InterpCBar = [Y_Cross,obj.LagrangeIP(Y_Cross(:,2), Cross(2))'];
-                                   Coeff_Rho = 0;
-                                   out4 = Y_Cross;
-                                   
-                                else
-                                    "No case exists for nonempty X_Cross and Y_Cross"
-                                    InterpCBar = [];
-                                    Coeff_Rho = 0;
-                                    out4 = [0,0];
-                                end
-                            else 
-                                "C_i, C_ii, and C_iii do not lie in the domain";
-                                InterpCBar = [];
-                                Coeff_Rho = 0;
-                                out4 = [0,0];
-                            end
-                   end
-                case "NotEqual"
-                    if XSize(1)~=0 || YSize(1)~=0                                  %If at least one cross point exists in X or Y
-                        D = poly(CenterID).D;
-                        if max(dX1,dX2)<=max(dY1,dY2) %If there are more points in X OR if there are equal points and the slope of the boundary is greater than or equal to 1
-%                             
-                            [InterpCBar, Coeff_Rho] = obj.Find_CBar(xi_bar, C_Gamma, X_Cross, XSize, poly, CenterID, ka, kd, poly(CenterID).D, "X"); 
-                           out4 = X_Cross;
-                        elseif max(dX1,dX2)>max(dY1,dY2) %If there are more points in Y OR if there are equal points and the slope of the normal is less than or equal to 1
-%                             
-                            [InterpCBar, Coeff_Rho] = obj.Find_CBar(xi_bar, C_Gamma, Y_Cross, YSize, poly, CenterID, ka, kd, poly(CenterID).D, "Y");
-                           out4 = Y_Cross;
-                        else
-                            "No case exists for nonempty X_Cross and Y_Cross"
-                            InterpCBar = [];
-                            Coeff_Rho = 0;
-                            out4 = [0,0];
-                        end
-                    else 
-                        "C_i, C_ii, and C_iii do not lie in the domain";
-                        InterpCBar = [];
-                        Coeff_Rho = 0;
-                        out4 = [0,0];
-                    end
-            end
-            out1 = InterpCBar; 
-            out2 = Coeff_Rho;
-            out3 = C_Gamma;
-            out5 = LineID;
-        end
         
         %% Create the network for each subdomain and identify which discretization points line in each channel.
         function [out] = SolveNetwork(obj, k, poly, Mtrix ,SolNetStruct, SolField, Case, Case2)

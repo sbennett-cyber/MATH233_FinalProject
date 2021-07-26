@@ -45,8 +45,8 @@ clc
 % 
 % Solve
 
-% load('Ynet_Net.mat')
-% load('Ynet_Poly.mat')
+load('Ynet_Net.mat')
+load('Ynet_Poly.mat')
 % load('KinkedLinekd0V2_Net.mat')
 % load('KinkedLinekd0V2_poly.mat')
 % load('StraightLinekd0V1_Net.mat')
@@ -55,8 +55,8 @@ clc
 % load('SL00100100kd1D1V1_poly.mat')
 % load('SL00100100kd1_Net.mat')
 % load('SL00100100kd1_poly.mat')
-load('KL00100100A2kd1D8_Net.mat')
-load('KL00100100A2kd1D8_poly.mat')
+% load('KL00100100A2kd1D8_Net.mat')
+% load('KL00100100A2kd1D8_poly.mat')
 
 % Setup discretization points
 % PntsInX = 251;
@@ -66,14 +66,14 @@ load('KL00100100A2kd1D8_poly.mat')
 % PntsInY = 201;
 % PntsLine = [401, 401, 0]; %This is a vector when the network has more than one channel
 
-PntsInX = 201;
-PntsInY = 201;
-PntsLine = [401, 401, 0]; %This is a vector when the network has more than one channel
+PntsInX = 81;
+PntsInY = 81;
+PntsLine = [161, 161, 161]; %This is a vector when the network has more than one channel
 
 alpha = 1;
 beta = 1;
 %CenterGaussianY = 8.1415;
-L = 100;
+L = 16;
 dt=0.2;
 n = 20;
 Time = (n/dt);
